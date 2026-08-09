@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
@@ -17,21 +17,26 @@ import json
 
 router = APIRouter(prefix="/api", tags=["simulation"])
 
-_sims: Dict[str, Dict[str, Any]] = {}
+# ── In-memory simulation store ───────────────────────────────────────────────
+_sims: Dict[str, Dict[str, Any]] = {}  # run_id → {"sim": sim, "optimizer": opt, ...}
 _lock = threading.Lock()
 
 
+# ── Request schemas ───────────────────────────────────────────────────────────
+
 class SimStartInput(BaseModel):
-    layout_id:      str
-    population:     int   = Field(ge=1, le=10000)
-    adherence_rate: float = Field(default=0.70, ge=0.0, le=1.0)
-    use_ml:         bool  = Field(default=True)
-    seed:           Optional[int] = None
+    layout_id:     str
+    population:    int   = Field(ge=1, le=10000)
+    adherence_rate:float = Field(default=0.70, ge=0.0, le=1.0)
+    use_ml:        bool  = Field(default=True, description="Use ML-guided routing")
+    seed:          Optional[int] = None
 
 
 class SimStepInput(BaseModel):
     steps: int = Field(default=1, ge=1, le=200)
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _load_gm(layout_id: str) -> GridMap:
     sample = get_sample(layout_id)
@@ -46,30 +51,11 @@ def _load_gm(layout_id: str) -> GridMap:
     return gm
 
 
-def _run_optimizer(entry: Dict[str, Any]) -> None:
-    """Call recommend_with_zones on the optimizer and cache result in entry."""
-    optimizer: Optional[RouteOptimizer] = entry.get("optimizer")
-    sim: EvacuationSim = entry["sim"]
-    if optimizer and optimizer.should_update():
-        recommended, zone_dirs, reroute_evts = optimizer.recommend_with_zones()
-        sim.update_guided_targets(recommended)
-        # Keep only the 10 most recent rerouting messages (deduplicated)
-        existing: List[str] = entry.get("reroute_events", [])
-        combined = list(dict.fromkeys(reroute_evts + existing))[:10]
-        entry["zone_directions"] = zone_dirs
-        entry["reroute_events"]  = combined
-
-
-def _state_with_guidance(entry: Dict[str, Any]) -> Dict[str, Any]:
-    """Return sim state dict enriched with zone directions and reroute events."""
-    state = entry["sim"].to_state_dict()
-    state["zone_directions"] = entry.get("zone_directions", [])
-    state["reroute_events"]  = entry.get("reroute_events", [])
-    return state
-
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/simulation/start", status_code=201)
 def start_simulation(body: SimStartInput):
+    """Create and initialise a simulation run. Returns run_id."""
     gm = _load_gm(body.layout_id)
     try:
         sim = EvacuationSim(
@@ -87,16 +73,15 @@ def start_simulation(body: SimStartInput):
     run_id = f"run_{uuid.uuid4().hex[:10]}"
     with _lock:
         _sims[run_id] = {
-            "sim":             sim,
-            "optimizer":       optimizer,
-            "use_ml":          body.use_ml,
-            "status":          "ready",
-            "layout_id":       body.layout_id,
-            "population":      body.population,
-            "adherence":       body.adherence_rate,
-            "zone_directions": [],
-            "reroute_events":  [],
+            "sim":       sim,
+            "optimizer": optimizer,
+            "use_ml":    body.use_ml,
+            "status":    "ready",
+            "layout_id": body.layout_id,
+            "population":body.population,
+            "adherence": body.adherence_rate,
         }
+
     return {
         "run_id":     run_id,
         "status":     "ready",
@@ -109,36 +94,43 @@ def start_simulation(body: SimStartInput):
 
 @router.post("/simulation/{run_id}/step")
 def step_simulation(run_id: str, body: SimStepInput):
+    """Advance the simulation by `steps` steps. Returns latest state."""
     with _lock:
         entry = _sims.get(run_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Run not found.")
 
     sim: EvacuationSim = entry["sim"]
+    optimizer: Optional[RouteOptimizer] = entry["optimizer"]
+
     if sim.done:
-        return {"state": _state_with_guidance(entry), "done": True}
+        return {"state": sim.to_state_dict(), "done": True}
 
     for _ in range(body.steps):
         if sim.done:
             break
         sim.step()
-        _run_optimizer(entry)
+        if optimizer and optimizer.should_update():
+            rec = optimizer.recommend()
+            sim.update_guided_targets(rec)
 
     entry["status"] = "done" if sim.done else "running"
-    return {"state": _state_with_guidance(entry), "done": sim.done}
+    return {"state": sim.to_state_dict(), "done": sim.done}
 
 
 @router.get("/simulation/{run_id}/state")
 def get_simulation_state(run_id: str):
+    """Poll current simulation state (for frontend polling)."""
     with _lock:
         entry = _sims.get(run_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Run not found.")
-    return _state_with_guidance(entry)
+    return entry["sim"].to_state_dict()
 
 
 @router.post("/simulation/{run_id}/run")
 def run_to_completion(run_id: str, background_tasks: BackgroundTasks):
+    """Run simulation to completion in the background."""
     with _lock:
         entry = _sims.get(run_id)
     if not entry:
@@ -146,10 +138,12 @@ def run_to_completion(run_id: str, background_tasks: BackgroundTasks):
 
     def _bg():
         sim: EvacuationSim = entry["sim"]
+        optimizer = entry["optimizer"]
         entry["status"] = "running"
         while not sim.done and sim.step_num < 2000:
             sim.step()
-            _run_optimizer(entry)
+            if optimizer and optimizer.should_update():
+                sim.update_guided_targets(optimizer.recommend())
         entry["status"] = "done"
 
     background_tasks.add_task(_bg)
@@ -158,6 +152,7 @@ def run_to_completion(run_id: str, background_tasks: BackgroundTasks):
 
 @router.post("/simulation/{run_id}/reset")
 def reset_simulation(run_id: str):
+    """Discard a simulation run."""
     with _lock:
         if run_id in _sims:
             del _sims[run_id]
@@ -166,28 +161,30 @@ def reset_simulation(run_id: str):
 
 @router.get("/simulation/{run_id}/results")
 def get_simulation_results(run_id: str):
+    """Return full results after a completed simulation."""
     with _lock:
         entry = _sims.get(run_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Run not found.")
     sim: EvacuationSim = entry["sim"]
+    counts = sim.cell_counts() if hasattr(sim, "cell_counts") else {}
     return {
-        "run_id":            run_id,
-        "layout_id":         entry["layout_id"],
-        "population":        entry["population"],
-        "adherence":         entry["adherence"],
-        "use_ml":            entry["use_ml"],
-        "done":              sim.done,
-        "steps":             sim.step_num,
-        "evacuation_time_s": round(sim.evacuation_time_s, 2),
-        "exit_flows":        sim.exit_flows_total,
+        "run_id":           run_id,
+        "layout_id":        entry["layout_id"],
+        "population":       entry["population"],
+        "adherence":        entry["adherence"],
+        "use_ml":           entry["use_ml"],
+        "done":             sim.done,
+        "steps":            sim.step_num,
+        "evacuation_time_s":round(sim.evacuation_time_s, 2),
+        "exit_flows":       sim.exit_flows_total,
         "steps_history": [
             {
-                "step":       r.step,
-                "time_s":     r.time_s,
-                "alive":      r.alive_count,
-                "exited":     r.exited_count,
-                "exit_flows": r.exit_flows,
+                "step":        r.step,
+                "time_s":      r.time_s,
+                "alive":       r.alive_count,
+                "exited":      r.exited_count,
+                "exit_flows":  r.exit_flows,
             }
             for r in sim.history
         ],
@@ -196,6 +193,7 @@ def get_simulation_results(run_id: str):
 
 @router.get("/simulation/runs/list")
 def list_runs():
+    """List all active simulation runs."""
     with _lock:
         return [
             {"run_id": rid, "status": e["status"], "layout_id": e["layout_id"],

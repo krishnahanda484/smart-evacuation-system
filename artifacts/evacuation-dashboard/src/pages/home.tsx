@@ -7,10 +7,11 @@ import {
   getGetSimulationStateQueryKey,
   getGetSimulationResultsQueryKey,
 } from '@workspace/api-client-react';
-import { Activity, Map, Play, Cpu, BarChart2 } from 'lucide-react';
+import { Activity, Map, Play, Cpu, BarChart2, Eye, Pencil } from 'lucide-react';
 
 import { LayoutSidebar } from '@/components/layout-sidebar';
 import { GridCanvas } from '@/components/grid-canvas';
+import { GridEditor } from '@/components/grid-editor';
 import { StatsPanel } from '@/components/stats-panel';
 import { SimulationCanvas } from '@/components/simulation-canvas';
 import { SimConfigPanel } from '@/components/sim-config-panel';
@@ -19,6 +20,7 @@ import { PipelinePanel } from '@/components/pipeline-panel';
 import { EvaluationPanel } from '@/components/evaluation-panel';
 
 type Tab = 'grid' | 'simulation' | 'pipeline' | 'evaluation';
+type GridMode = 'view' | 'edit';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'grid',       label: 'Grid Map',   icon: <Map className="w-3.5 h-3.5" /> },
@@ -29,6 +31,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('grid');
+  const [gridMode, setGridMode] = useState<GridMode>('view');
 
   // ── Grid map ─────────────────────────────────────────────────────────────
   const [selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null);
@@ -106,54 +109,94 @@ export default function Home() {
         {/* Tab 1: Grid Map */}
         {tab === 'grid' && (
           <div className="flex h-full">
-            <aside className="w-72 flex-none border-r bg-card flex flex-col">
-              <div className="px-4 py-2.5 border-b border-border/50">
-                <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Available Layouts</p>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <LayoutSidebar selectedId={selectedLayoutId} onSelect={setSelectedLayoutId} />
-              </div>
-            </aside>
+            {/* Left sidebar — only in view mode */}
+            {gridMode === 'view' && (
+              <aside className="w-72 flex-none border-r bg-card flex flex-col">
+                <div className="px-4 py-2.5 border-b border-border/50 flex items-center justify-between">
+                  <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Available Layouts</p>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <LayoutSidebar selectedId={selectedLayoutId} onSelect={setSelectedLayoutId} />
+                </div>
+              </aside>
+            )}
 
-            <main
-              className="flex-1 relative flex bg-[#0a1120] overflow-hidden"
-              style={{ backgroundImage: 'radial-gradient(circle, #1e293b 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-            >
-              {selectedLayoutId ? (
-                layoutLoading ? (
-                  <div className="m-auto flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    <p className="text-[10px] font-mono text-muted-foreground tracking-widest animate-pulse">Loading…</p>
-                  </div>
-                ) : layout ? (
-                  <GridCanvas gridData={layout.grid} />
+            {/* Main canvas area */}
+            <main className="flex-1 relative flex flex-col bg-[#0a1120] overflow-hidden">
+              {/* View / Edit toggle bar */}
+              <div className="flex-none h-10 bg-card border-b border-border flex items-center px-3 gap-2 z-10">
+                <div className="flex items-center rounded overflow-hidden border border-border">
+                  <button
+                    onClick={() => setGridMode('view')}
+                    className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold transition-colors ${
+                      gridMode === 'view'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background'
+                    }`}
+                  >
+                    <Eye className="w-3 h-3" /> View
+                  </button>
+                  <button
+                    onClick={() => setGridMode('edit')}
+                    className={`flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold transition-colors border-l border-border ${
+                      gridMode === 'edit'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background'
+                    }`}
+                  >
+                    <Pencil className="w-3 h-3" /> Edit / Create
+                  </button>
+                </div>
+                {gridMode === 'edit' && (
+                  <p className="text-[10px] text-muted-foreground font-mono ml-2">
+                    Paint cells · Set size · Save to use in Simulation
+                  </p>
+                )}
+                {gridMode === 'view' && selectedLayoutId && layout && !layoutLoading && (
+                  <span className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5 ml-2">
+                    <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                    {layout.grid.width} × {layout.grid.height} matrix
+                  </span>
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-hidden relative" style={gridMode === 'view' ? { backgroundImage: 'radial-gradient(circle, #1e293b 1px, transparent 1px)', backgroundSize: '20px 20px' } : undefined}>
+                {gridMode === 'edit' ? (
+                  <GridEditor />
+                ) : selectedLayoutId ? (
+                  layoutLoading ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      <p className="text-[10px] font-mono text-muted-foreground tracking-widest animate-pulse">Loading…</p>
+                    </div>
+                  ) : layout ? (
+                    <GridCanvas gridData={layout.grid} />
+                  ) : (
+                    <p className="absolute inset-0 flex items-center justify-center text-xs text-destructive font-mono">Failed to load layout</p>
+                  )
                 ) : (
-                  <p className="m-auto text-xs text-destructive font-mono">Failed to load layout</p>
-                )
-              ) : (
-                <div className="m-auto flex flex-col items-center gap-4 text-center">
-                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center">
-                    <Map className="w-7 h-7 text-slate-600" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center">
+                    <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center">
+                      <Map className="w-7 h-7 text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Awaiting Input</p>
+                      <p className="text-[10px] text-slate-600 mt-1 max-w-48 leading-relaxed">Select a layout to visualize, or switch to Edit mode to create your own</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Awaiting Input</p>
-                    <p className="text-[10px] text-slate-600 mt-1 max-w-48 leading-relaxed">Select a layout to visualize the cellular grid</p>
-                  </div>
-                </div>
-              )}
-              {selectedLayoutId && layout && !layoutLoading && (
-                <div className="absolute bottom-3 left-3 bg-card/90 backdrop-blur border border-border rounded px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                  {layout.grid.width} × {layout.grid.height} matrix
-                </div>
-              )}
+                )}
+              </div>
             </main>
 
-            <aside className="w-72 flex-none border-l bg-card flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                <StatsPanel layout={layout} isLoading={layoutLoading && !!selectedLayoutId} />
-              </div>
-            </aside>
+            {/* Right stats panel — only in view mode */}
+            {gridMode === 'view' && (
+              <aside className="w-72 flex-none border-l bg-card flex flex-col">
+                <div className="flex-1 overflow-y-auto">
+                  <StatsPanel layout={layout} isLoading={layoutLoading && !!selectedLayoutId} />
+                </div>
+              </aside>
+            )}
           </div>
         )}
 

@@ -1,0 +1,54 @@
+{
+  "congestion_model": {
+    "random_forest": {
+      "rmse": 0.01637,
+      "mae": 0.00252,
+      "r2": 0.98504
+    },
+    "xgboost": {
+      "rmse": 0.0143,
+      "mae": 0.00269,
+      "r2": 0.98859
+    },
+    "mlp": {
+      "rmse": 0.01918,
+      "mae": 0.00487,
+      "r2": 0.97947
+    }
+  },
+  "evactime_model": {
+    "random_forest": {
+      "rmse": 3.32427,
+      "mae": 2.63432,
+      "r2": 0.97749
+    },
+    "xgboost": {
+      "rmse": 3.35725,
+      "mae": 2.67242,
+      "r2": 0.97704
+    },
+    "mlp": {
+      "rmse": 3.46478,
+      "mae": 2.7747,
+      "r2": 0.97555
+    }
+  },
+  "best_congestion": "xgboost",
+  "best_evactime": "random_forest",
+  "dataset_rows": 81312,
+  "train_rows": 65049,
+  "test_rows": 16263,
+  "features": [
+    "population_total",
+    "adherence_rate",
+    "timestamp_s",
+    "local_population",
+    "passable_cells",
+    "local_density",
+    "nearest_exit_dist",
+    "exit_flow_this_step",
+    "avg_walking_speed",
+    "current_congestion"
+  ],
+  "trained_at": 1785852764.7940764
+}

@@ -387,6 +387,14 @@ class EvacuationSim:
                 (self.pos[:, 1] >= c0) & (self.pos[:, 1] < c1)
             )[0]
             avg_speed = float(np.mean(self.speeds[in_region])) if len(in_region) else 0.0
+            
+            # Determine recommended exit for this region based on the agents' targets
+            if len(in_region) > 0:
+                targets_in_region = self.targets[in_region]
+                recommended_exit_id = int(np.bincount(targets_in_region).argmax())
+            else:
+                recommended_exit_id = reg["nearest_exit"]
+
             region_stats.append({
                 "region_id":           reg["id"],
                 "center_row":          reg["center_row"],
@@ -398,6 +406,7 @@ class EvacuationSim:
                 "nearest_exit_id":     reg["nearest_exit"],
                 "nearest_exit_dist":   reg["nearest_exit_dist"],
                 "avg_walking_speed":   round(avg_speed, 4),
+                "recommended_exit_id": recommended_exit_id,
             })
 
         record = StepRecord(
@@ -446,7 +455,10 @@ class EvacuationSim:
                 {"region_id": rs["region_id"],
                  "congestion": rs["current_congestion"],
                  "row": rs["center_row"],
-                 "col": rs["center_col"]}
+                 "col": rs["center_col"],
+                 "local_population": rs["local_population"],
+                 "nearest_exit_id": rs["nearest_exit_id"],
+                 "recommended_exit_id": rs.get("recommended_exit_id", rs["nearest_exit_id"])}
                 for rs in (self.history[-1].region_stats if self.history else [])
             ],
         }

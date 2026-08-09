@@ -12,9 +12,9 @@ This prototype replaces the paper's Monte Carlo forecasting loop with a trained 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 20+
-- pnpm 9+ (`npm install -g pnpm`)
+- Python 3.10+
+- Node.js 18+
+- pnpm (`npm install -g pnpm`) or npm (included with Node.js)
 
 ### Run (Linux / macOS)
 ```bash
@@ -26,6 +26,13 @@ chmod +x scripts/run_local.sh
 ```cmd
 scripts\run_local.bat
 ```
+
+### Run manually (step by step)
+1. `python -m venv .venv && .venv\Scripts\activate` — create virtual environment
+2. `pip install -r backend\requirements.txt` — install Python packages
+3. `cd artifacts\evacuation-dashboard && npm install` — install Node packages
+4. `uvicorn app.main:app --port 8080 --app-dir backend` — start backend
+5. `cd artifacts\evacuation-dashboard && npm run dev` — start frontend
 
 Both scripts:
 1. Create a Python virtual environment and install dependencies

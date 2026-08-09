@@ -3,49 +3,13 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
-
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
-}
+const port = Number(process.env.PORT) || 5173;
 
 export default defineConfig({
-  base: basePath,
+  base: '/',
   plugins: [
     react(),
     tailwindcss(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== 'production' &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import('@replit/vite-plugin-cartographer').then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
-            }),
-          ),
-          await import('@replit/vite-plugin-dev-banner').then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
   ],
   resolve: {
     alias: {
@@ -56,26 +20,55 @@ export default defineConfig({
         '..',
         'attached_assets',
       ),
+      '@workspace/api-client-react': path.resolve(
+        import.meta.dirname,
+        '..',
+        '..',
+        'lib',
+        'api-client-react',
+        'src',
+        'index.ts',
+      ),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    rollupOptions: {
+      // Ensure all external files can resolve their dependencies from this node_modules
+    },
   },
   server: {
     port,
-    strictPort: true,
+    strictPort: false,
     host: '0.0.0.0',
-    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
     fs: {
-      strict: true,
+      strict: false,
+      // Allow serving files from the entire project (including lib/)
+      allow: [
+        path.resolve(import.meta.dirname),
+        path.resolve(import.meta.dirname, '..', '..', 'lib'),
+      ],
     },
   },
   preview: {
     port,
     host: '0.0.0.0',
-    allowedHosts: true,
+  },
+  optimizeDeps: {
+    include: ['@tanstack/react-query'],
+    // Force vite to process files outside root
+    entries: [
+      'src/**/*.{ts,tsx}',
+      '../../lib/api-client-react/src/**/*.ts',
+    ],
   },
 });

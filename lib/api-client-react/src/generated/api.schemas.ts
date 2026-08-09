@@ -117,16 +117,6 @@ export interface RegionCongestion {
   col: number;
 }
 
-export interface ZoneDirection {
-  region_id: number;
-  center_row: number;
-  center_col: number;
-  recommended_exit: number;
-  nearest_exit: number;
-  is_rerouted: boolean;
-  exit_congestion?: number;
-}
-
 export type SimStateExitFlows = {[key: string]: number};
 
 export interface SimState {
@@ -139,8 +129,6 @@ export interface SimState {
   density_flat?: number[];
   exit_flows?: SimStateExitFlows;
   region_congestion?: RegionCongestion[];
-  zone_directions?: ZoneDirection[];
-  reroute_events?: string[];
 }
 
 export interface SimStepResult {
@@ -250,14 +238,6 @@ export interface EvalStatus {
   error?: string | null;
 }
 
-export interface ReroutingStats {
-  total_reroute_decisions?: number;
-  total_zone_decisions?: number;
-  pct_zones_rerouted?: number;
-  rerouting_contribution_pct?: number;
-  description?: string;
-}
-
 export type EvalResultsCongestionTimeSeries = {
   time_axis?: number[];
   greedy_mean?: number[];
@@ -272,7 +252,6 @@ export interface EvalResults {
   improvement_pct: number;
   greedy: EvalSideResult;
   guided: EvalSideResult;
-  rerouting?: ReroutingStats;
   congestion_time_series?: EvalResultsCongestionTimeSeries;
   wall_time_s?: number;
 }

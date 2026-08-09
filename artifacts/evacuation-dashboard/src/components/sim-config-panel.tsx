@@ -37,6 +37,18 @@ export function SimConfigPanel({ runId, onRunId, onLayoutId, onPopulation, simSt
   const runMut = useRunSimulationToCompletion();
   const resetMut = useResetSimulation();
 
+  const handleLayoutChange = (newLayout: string) => {
+    setLayoutId(newLayout);
+    onLayoutId(newLayout);
+    
+    // Clamp population to the new max
+    const newMax = getMaxPop(newLayout);
+    if (pop > newMax) {
+      setPop(newMax);
+      onPopulation(newMax);
+    }
+  };
+
   const handleStart = async () => {
     if (runId) {
       await resetMut.mutateAsync({ runId });
@@ -68,6 +80,18 @@ export function SimConfigPanel({ runId, onRunId, onLayoutId, onPopulation, simSt
   const busy = startMut.isPending || stepMut.isPending || runMut.isPending;
   const active = !!runId && !simState?.done;
 
+  const getMaxPop = (lId: string) => {
+    if (lId === 'sample_small') return 80;
+    if (lId === 'sample_medium') return 400;
+    if (lId === 'sample_large') return 2000;
+    
+    const l = layouts?.find(x => x.id === lId);
+    if (l && (l as any).free_count) return Math.max(20, Math.floor((l as any).free_count * 0.5));
+    return 2000;
+  };
+
+  const currentMaxPop = getMaxPop(layoutId);
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="px-4 py-3 border-b border-border/50">
@@ -85,7 +109,7 @@ export function SimConfigPanel({ runId, onRunId, onLayoutId, onPopulation, simSt
           <select
             className="bg-background border border-border rounded px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             value={layoutId}
-            onChange={e => { setLayoutId(e.target.value); onLayoutId(e.target.value); }}
+            onChange={e => handleLayoutChange(e.target.value)}
             disabled={active}
           >
             {layouts?.map(l => (
@@ -101,14 +125,14 @@ export function SimConfigPanel({ runId, onRunId, onLayoutId, onPopulation, simSt
             <span className="text-xs font-mono text-primary font-bold">{pop}</span>
           </div>
           <input
-            type="range" min={20} max={2000} step={10}
+            type="range" min={20} max={currentMaxPop} step={10}
             value={pop}
             onChange={e => { const v = +e.target.value; setPop(v); onPopulation(v); }}
             disabled={active}
             className="w-full accent-primary"
           />
           <div className="flex justify-between text-[9px] text-muted-foreground font-mono">
-            <span>20</span><span>2000</span>
+            <span>20</span><span>{currentMaxPop}</span>
           </div>
         </div>
 
@@ -133,20 +157,34 @@ export function SimConfigPanel({ runId, onRunId, onLayoutId, onPopulation, simSt
         </div>
 
         {/* Use ML */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 bg-background border border-border rounded-lg px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-              ML-Guided Routing
-            </span>
+            <Cpu className={`w-3.5 h-3.5 ${useML ? 'text-primary' : 'text-muted-foreground'}`} />
+            <div>
+              <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+                ML-Guided Routing
+              </p>
+              <p className={`text-[9px] font-mono ${useML ? 'text-primary' : 'text-slate-500'}`}>
+                {useML ? 'AI active' : 'Greedy only'}
+              </p>
+            </div>
           </div>
           <button
-            onClick={() => setUseML(v => !v)}
+            type="button"
+            role="switch"
+            aria-checked={useML}
+            onClick={() => !active && setUseML(v => !v)}
             disabled={active}
-            className={`relative w-10 h-5 rounded-full transition-colors ${useML ? 'bg-primary' : 'bg-slate-700'} disabled:opacity-40`}
+            className={`relative flex-none w-11 h-6 rounded-full border-2 transition-all duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
+              useML
+                ? 'bg-primary border-primary'
+                : 'bg-slate-700 border-slate-600'
+            }`}
           >
             <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${useML ? 'translate-x-5' : 'translate-x-0.5'}`}
+              className={`absolute top-0.5 block w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                useML ? 'translate-x-[22px]' : 'translate-x-0.5'
+              }`}
             />
           </button>
         </div>

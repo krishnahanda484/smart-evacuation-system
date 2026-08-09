@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 import type { SimState, SimResults } from '@workspace/api-client-react';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
 interface Props {
-  simState:   SimState | null;
-  results:    SimResults | null;
+  simState: SimState | null;
+  results: SimResults | null;
   population: number;
 }
 
 export function SimStatsPanel({ simState, results, population }: Props) {
-  // Sparkline from results history
+  // Build sparkline data from results history or live accumulation
   const sparkData = useMemo(() => {
     if (results?.steps_history) {
       return results.steps_history
@@ -37,24 +37,14 @@ export function SimStatsPanel({ simState, results, population }: Props) {
 
   const maxFlow = Math.max(1, ...exitFlows.map(e => e.flow));
 
-  // Exit balance
+  // Exit balance score (lower std = better balance)
   const exitBalance = useMemo(() => {
     if (exitFlows.length < 2) return null;
     const flows = exitFlows.map(e => e.flow);
-    const mean  = flows.reduce((a, b) => a + b, 0) / flows.length;
-    const std   = Math.sqrt(flows.reduce((a, b) => a + (b - mean) ** 2, 0) / flows.length);
+    const mean = flows.reduce((a, b) => a + b, 0) / flows.length;
+    const std = Math.sqrt(flows.reduce((a, b) => a + (b - mean) ** 2, 0) / flows.length);
     return std.toFixed(1);
   }, [exitFlows]);
-
-  // Rerouting events — most recent 5, deduped
-  const rerouteEvents: string[] = useMemo(() => {
-    const evts: string[] = simState?.reroute_events ?? [];
-    return evts.slice(0, 5);
-  }, [simState?.reroute_events]);
-
-  // Count currently rerouted zones
-  const reroutedZones = (simState?.zone_directions ?? []).filter(z => z.is_rerouted).length;
-  const totalZones    = (simState?.zone_directions ?? []).length;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -85,43 +75,6 @@ export function SimStatsPanel({ simState, results, population }: Props) {
             </div>
           )}
 
-          {/* ── Rerouting alert panel ──────────────────────────────── */}
-          {reroutedZones > 0 && (
-            <div className="rounded border border-amber-500/40 bg-amber-900/20 p-3 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-                  Dynamic Rerouting Active
-                </span>
-                <span className="ml-auto text-[9px] font-mono text-amber-400/70 bg-amber-900/50 px-1.5 py-0.5 rounded">
-                  {reroutedZones}/{totalZones} zones
-                </span>
-              </div>
-              <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
-                {rerouteEvents.map((msg, i) => (
-                  <p key={i} className="text-[9px] font-mono text-amber-200/80 leading-relaxed border-l-2 border-amber-500/40 pl-2">
-                    {msg}
-                  </p>
-                ))}
-                {rerouteEvents.length === 0 && (
-                  <p className="text-[9px] font-mono text-amber-300/60">
-                    Congestion detected — rerouting occupants via ML guidance…
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ML guidance status when zones are normal */}
-          {totalZones > 0 && reroutedZones === 0 && !simState.done && (
-            <div className="rounded border border-blue-500/30 bg-blue-900/10 px-3 py-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
-              <span className="text-[9px] font-mono text-blue-300/80">
-                ML guidance active — exits balanced, no congestion detected
-              </span>
-            </div>
-          )}
-
           {/* Progress */}
           <div>
             <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-1.5">
@@ -133,9 +86,7 @@ export function SimStatsPanel({ simState, results, population }: Props) {
                 className="h-full rounded-full transition-all duration-200"
                 style={{
                   width: `${Math.round((simState.exited_count / Math.max(1, population)) * 100)}%`,
-                  background: simState.done
-                    ? '#38A169'
-                    : 'linear-gradient(90deg,#3B82F6,#0EA5E9)',
+                  background: simState.done ? '#38A169' : 'linear-gradient(90deg,#3B82F6,#0EA5E9)',
                 }}
               />
             </div>
@@ -187,10 +138,8 @@ export function SimStatsPanel({ simState, results, population }: Props) {
                         }}
                       />
                     </div>
-                    <span
-                      className="text-[10px] font-mono w-10 text-right font-semibold"
-                      style={{ color: r.congestion > 0.7 ? '#EF4444' : r.congestion > 0.4 ? '#F59E0B' : '#94A3B8' }}
-                    >
+                    <span className="text-[10px] font-mono w-10 text-right font-semibold"
+                      style={{ color: r.congestion > 0.7 ? '#EF4444' : r.congestion > 0.4 ? '#F59E0B' : '#94A3B8' }}>
                       {Math.round(r.congestion * 100)}%
                     </span>
                   </div>

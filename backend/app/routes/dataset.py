@@ -14,22 +14,10 @@ from ..modules.dataset_gen import (
 router = APIRouter(prefix="/api", tags=["dataset"])
 
 
-def _sanitize(obj):
-    """Recursively replace float inf/nan with None for JSON safety."""
-    import math
-    if isinstance(obj, float):
-        return None if not math.isfinite(obj) else obj
-    if isinstance(obj, dict):
-        return {k: _sanitize(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_sanitize(i) for i in obj]
-    return obj
-
-
 @router.get("/dataset/status")
 def dataset_status():
     """Return generation progress and sample rows."""
-    return _sanitize(get_status())
+    return get_status()
 
 
 @router.post("/dataset/generate", status_code=202)

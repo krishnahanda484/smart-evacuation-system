@@ -547,18 +547,6 @@ components:
         row:        { type: integer }
         col:        { type: integer }
 
-    ZoneDirection:
-      type: object
-      required: [region_id, center_row, center_col, recommended_exit, nearest_exit, is_rerouted]
-      properties:
-        region_id:        { type: integer }
-        center_row:       { type: integer }
-        center_col:       { type: integer }
-        recommended_exit: { type: integer }
-        nearest_exit:     { type: integer }
-        is_rerouted:      { type: boolean }
-        exit_congestion:  { type: number }
-
     SimState:
       type: object
       required: [step, time_s, alive_count, exited_count, done]
@@ -583,13 +571,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RegionCongestion"
-        zone_directions:
-          type: array
-          items:
-            $ref: "#/components/schemas/ZoneDirection"
-        reroute_events:
-          type: array
-          items: { type: string }
 
     SimStepResult:
       type: object
@@ -730,15 +711,6 @@ components:
         result: { nullable: true }
         error:  { type: string, nullable: true }
 
-    ReroutingStats:
-      type: object
-      properties:
-        total_reroute_decisions:     { type: integer }
-        total_zone_decisions:        { type: integer }
-        pct_zones_rerouted:          { type: number }
-        rerouting_contribution_pct:  { type: number }
-        description:                 { type: string }
-
     EvalResults:
       type: object
       required: [improvement_pct, greedy, guided]
@@ -752,8 +724,6 @@ components:
           $ref: "#/components/schemas/EvalSideResult"
         guided:
           $ref: "#/components/schemas/EvalSideResult"
-        rerouting:
-          $ref: "#/components/schemas/ReroutingStats"
         congestion_time_series:
           type: object
           properties:
