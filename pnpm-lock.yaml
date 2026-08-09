@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@types/node':
+      specifier: latest
+      version: 26.2.0
+    tsx:
+      specifier: latest
+      version: 4.23.11
+
 importers:
 
   .: {}
@@ -209,10 +218,10 @@ importers:
   scripts:
     devDependencies:
       '@types/node':
-        specifier: latest
+        specifier: 'catalog:'
         version: 26.2.0
       tsx:
-        specifier: latest
+        specifier: 'catalog:'
         version: 4.23.11
 
 packages:
