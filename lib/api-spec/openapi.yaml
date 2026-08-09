@@ -1,0 +1,769 @@
+openapi: 3.1.0
+info:
+  title: Smart Evacuation System API
+  version: 1.0.0
+  description: >
+    AI-Based Smart Evacuation System — Modules 1–8 API.
+    Ibrahim et al., IEEE Access 2023.
+
+servers:
+  - url: /api
+
+paths:
+  # ── Health ──────────────────────────────────────────────────────────────────
+  /healthz:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      tags: [health]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── Layouts (Module 1) ───────────────────────────────────────────────────────
+  /layouts:
+    get:
+      operationId: listLayouts
+      summary: List all layouts
+      tags: [layouts]
+      responses:
+        "200":
+          description: Array of layout metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LayoutMeta"
+    post:
+      operationId: createLayout
+      summary: Create a custom layout
+      tags: [layouts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LayoutInput"
+      responses:
+        "201":
+          description: Created layout metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LayoutMeta"
+
+  /layouts/{layoutId}:
+    get:
+      operationId: getLayout
+      summary: Get layout with full grid
+      tags: [layouts]
+      parameters:
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Layout with grid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+        "404":
+          description: Not found
+
+  /layouts/{layoutId}/grid:
+    get:
+      operationId: getLayoutGrid
+      summary: Get raw grid data
+      tags: [layouts]
+      parameters:
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Grid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridData"
+
+  # ── Simulation (Module 2) ────────────────────────────────────────────────────
+  /simulation/start:
+    post:
+      operationId: startSimulation
+      summary: Create and initialise a simulation run
+      tags: [simulation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimStartInput"
+      responses:
+        "201":
+          description: Simulation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimStartResult"
+
+  /simulation/runs/list:
+    get:
+      operationId: listSimulationRuns
+      summary: List active simulation runs
+      tags: [simulation]
+      responses:
+        "200":
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimRunSummary"
+
+  /simulation/{runId}/step:
+    post:
+      operationId: stepSimulation
+      summary: Advance simulation N steps
+      tags: [simulation]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimStepInput"
+      responses:
+        "200":
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimStepResult"
+
+  /simulation/{runId}/state:
+    get:
+      operationId: getSimulationState
+      summary: Poll current simulation state
+      tags: [simulation]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Simulation state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimState"
+
+  /simulation/{runId}/run:
+    post:
+      operationId: runSimulationToCompletion
+      summary: Run simulation to completion in background
+      tags: [simulation]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /simulation/{runId}/reset:
+    post:
+      operationId: resetSimulation
+      summary: Discard a simulation run
+      tags: [simulation]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /simulation/{runId}/results:
+    get:
+      operationId: getSimulationResults
+      summary: Get full results of a completed simulation
+      tags: [simulation]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Full simulation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimResults"
+
+  # ── Dataset (Module 3) ───────────────────────────────────────────────────────
+  /dataset/status:
+    get:
+      operationId: getDatasetStatus
+      summary: Dataset generation status
+      tags: [dataset]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetStatus"
+
+  /dataset/generate:
+    post:
+      operationId: generateDataset
+      summary: Start synthetic dataset generation
+      tags: [dataset]
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /dataset/dictionary:
+    get:
+      operationId: getDataDictionary
+      summary: Get column descriptions
+      tags: [dataset]
+      responses:
+        "200":
+          description: Data dictionary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+
+  # ── ML (Module 4) ───────────────────────────────────────────────────────────
+  /ml/status:
+    get:
+      operationId: getMlStatus
+      summary: ML training status and predictor info
+      tags: [ml]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MlStatus"
+
+  /ml/train:
+    post:
+      operationId: trainModels
+      summary: Start ML model training
+      tags: [ml]
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /ml/metrics:
+    get:
+      operationId: getMlMetrics
+      summary: Model comparison metrics table
+      tags: [ml]
+      responses:
+        "200":
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MlMetrics"
+
+  /ml/writeup:
+    get:
+      operationId: getMlWriteup
+      summary: Auto-generated methodology write-up
+      tags: [ml]
+      responses:
+        "200":
+          description: Write-up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MlWriteup"
+
+  /ml/reload:
+    post:
+      operationId: reloadPredictor
+      summary: Reload predictor from disk
+      tags: [ml]
+      responses:
+        "200":
+          description: Reload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ── Evaluation (Module 8) ────────────────────────────────────────────────────
+  /evaluation/run:
+    post:
+      operationId: runEvaluation
+      summary: Start A/B evaluation greedy vs ML-guided
+      tags: [evaluation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvalInput"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /evaluation/status:
+    get:
+      operationId: getEvaluationStatus
+      summary: Evaluation progress
+      tags: [evaluation]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvalStatus"
+
+  /evaluation/results:
+    get:
+      operationId: getEvaluationResults
+      summary: Completed evaluation results
+      tags: [evaluation]
+      responses:
+        "200":
+          description: Results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvalResults"
+
+# ── Components ─────────────────────────────────────────────────────────────────
+components:
+  schemas:
+
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    # Layout schemas
+    ExitInfo:
+      type: object
+      required: [id, row, col, label]
+      properties:
+        id:    { type: integer }
+        row:   { type: integer }
+        col:   { type: integer }
+        label: { type: string }
+
+    CellTypeCounts:
+      type: object
+      required: [FREE, WALL, OBSTACLE, EXIT]
+      properties:
+        FREE:     { type: integer }
+        WALL:     { type: integer }
+        OBSTACLE: { type: integer }
+        EXIT:     { type: integer }
+
+    LayoutMeta:
+      type: object
+      required: [id, name, width, height, resolution_cm, exit_count, is_sample]
+      properties:
+        id:              { type: string }
+        name:            { type: string }
+        description:     { type: string }
+        width:           { type: integer }
+        height:          { type: integer }
+        resolution_cm:   { type: number }
+        exit_count:      { type: integer }
+        wall_count:      { type: integer }
+        obstacle_count:  { type: integer }
+        free_count:      { type: integer }
+        physical_width_m:  { type: number }
+        physical_height_m: { type: number }
+        passable_area_m2:  { type: number }
+        is_sample:       { type: boolean }
+
+    GridData:
+      type: object
+      required: [cells, width, height, cell_types, exits]
+      properties:
+        cells:
+          type: array
+          items:
+            type: array
+            items: { type: integer }
+        width:  { type: integer }
+        height: { type: integer }
+        cell_types:
+          type: object
+          properties:
+            FREE:     { type: integer }
+            WALL:     { type: integer }
+            OBSTACLE: { type: integer }
+            EXIT:     { type: integer }
+        exits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExitInfo"
+
+    Layout:
+      type: object
+      required: [meta, grid]
+      properties:
+        meta:
+          $ref: "#/components/schemas/LayoutMeta"
+        grid:
+          $ref: "#/components/schemas/GridData"
+
+    RectInput:
+      type: object
+      required: [row, col, width, height, cell_type]
+      properties:
+        row:       { type: integer }
+        col:       { type: integer }
+        width:     { type: integer }
+        height:    { type: integer }
+        cell_type: { type: integer }
+
+    ExitInput:
+      type: object
+      required: [row, col]
+      properties:
+        row:   { type: integer }
+        col:   { type: integer }
+        label: { type: string }
+
+    LayoutInput:
+      type: object
+      required: [name, width, height]
+      properties:
+        name:          { type: string }
+        description:   { type: string }
+        width:         { type: integer }
+        height:        { type: integer }
+        resolution_cm: { type: number }
+        rects:
+          type: array
+          items:
+            $ref: "#/components/schemas/RectInput"
+        exits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExitInput"
+
+    # Simulation schemas
+    SimStartInput:
+      type: object
+      required: [layout_id, population]
+      properties:
+        layout_id:      { type: string }
+        population:     { type: integer }
+        adherence_rate: { type: number }
+        use_ml:         { type: boolean }
+        seed:           { type: integer, nullable: true }
+
+    SimStartResult:
+      type: object
+      required: [run_id, status]
+      properties:
+        run_id:     { type: string }
+        status:     { type: string }
+        layout_id:  { type: string }
+        population: { type: integer }
+        n_exits:    { type: integer }
+        n_regions:  { type: integer }
+
+    SimStepInput:
+      type: object
+      properties:
+        steps: { type: integer }
+
+    RegionCongestion:
+      type: object
+      required: [region_id, congestion, row, col]
+      properties:
+        region_id:  { type: integer }
+        congestion: { type: number }
+        row:        { type: integer }
+        col:        { type: integer }
+
+    ZoneDirection:
+      type: object
+      required: [region_id, center_row, center_col, recommended_exit, nearest_exit, is_rerouted]
+      properties:
+        region_id:        { type: integer }
+        center_row:       { type: integer }
+        center_col:       { type: integer }
+        recommended_exit: { type: integer }
+        nearest_exit:     { type: integer }
+        is_rerouted:      { type: boolean }
+        exit_congestion:  { type: number }
+
+    SimState:
+      type: object
+      required: [step, time_s, alive_count, exited_count, done]
+      properties:
+        step:          { type: integer }
+        time_s:        { type: number }
+        alive_count:   { type: integer }
+        exited_count:  { type: integer }
+        done:          { type: boolean }
+        agents:
+          type: array
+          items:
+            type: array
+            items: { type: integer }
+        density_flat:
+          type: array
+          items: { type: integer }
+        exit_flows:
+          type: object
+          additionalProperties: { type: integer }
+        region_congestion:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionCongestion"
+        zone_directions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneDirection"
+        reroute_events:
+          type: array
+          items: { type: string }
+
+    SimStepResult:
+      type: object
+      required: [state, done]
+      properties:
+        state:
+          $ref: "#/components/schemas/SimState"
+        done: { type: boolean }
+
+    SimRunSummary:
+      type: object
+      required: [run_id, status, layout_id, done, steps]
+      properties:
+        run_id:    { type: string }
+        status:    { type: string }
+        layout_id: { type: string }
+        done:      { type: boolean }
+        steps:     { type: integer }
+
+    StepHistoryItem:
+      type: object
+      properties:
+        step:       { type: integer }
+        time_s:     { type: number }
+        alive:      { type: integer }
+        exited:     { type: integer }
+        exit_flows:
+          type: object
+          additionalProperties: { type: integer }
+
+    SimResults:
+      type: object
+      required: [run_id, done, evacuation_time_s]
+      properties:
+        run_id:            { type: string }
+        layout_id:         { type: string }
+        population:        { type: integer }
+        adherence:         { type: number }
+        use_ml:            { type: boolean }
+        done:              { type: boolean }
+        steps:             { type: integer }
+        evacuation_time_s: { type: number }
+        exit_flows:
+          type: object
+          additionalProperties: { type: integer }
+        steps_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepHistoryItem"
+
+    # Dataset schemas
+    DatasetStatus:
+      type: object
+      required: [state]
+      properties:
+        state:        { type: string }
+        runs_done:    { type: integer }
+        runs_total:   { type: integer }
+        rows_written: { type: integer }
+        started_at:   { type: number, nullable: true }
+        finished_at:  { type: number, nullable: true }
+        error:        { type: string, nullable: true }
+
+    # ML schemas
+    ModelMetrics:
+      type: object
+      required: [rmse, mae, r2]
+      properties:
+        rmse: { type: number }
+        mae:  { type: number }
+        r2:   { type: number }
+
+    MlStatus:
+      type: object
+      required: [state]
+      properties:
+        state:            { type: string }
+        message:          { type: string }
+        models_exist:     { type: boolean }
+        dataset_exists:   { type: boolean }
+        predictor_loaded: { type: boolean }
+        predictor_model:  { type: string }
+
+    MlMetrics:
+      type: object
+      properties:
+        congestion_model:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ModelMetrics"
+        evactime_model:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ModelMetrics"
+        best_congestion: { type: string }
+        best_evactime:   { type: string }
+        dataset_rows:    { type: integer }
+        train_rows:      { type: integer }
+        test_rows:       { type: integer }
+        features:
+          type: array
+          items: { type: string }
+
+    MlWriteup:
+      type: object
+      properties:
+        comparison_table:        { type: string }
+        chosen_congestion_model: { type: string }
+        chosen_evactime_model:   { type: string }
+        rationale:               { type: string }
+        methodology_excerpt:     { type: string }
+
+    # Evaluation schemas
+    EvalInput:
+      type: object
+      properties:
+        layout_id:      { type: string }
+        population:     { type: integer }
+        adherence_rate: { type: number }
+        n_runs:         { type: integer }
+
+    EvalSideResult:
+      type: object
+      properties:
+        mean_evac_time_s:  { type: number }
+        std_evac_time_s:   { type: number }
+        mean_exit_balance: { type: number }
+        mean_cong_auc:     { type: number }
+        all_times:
+          type: array
+          items: { type: number }
+
+    EvalStatus:
+      type: object
+      required: [state]
+      properties:
+        state:  { type: string }
+        result: { nullable: true }
+        error:  { type: string, nullable: true }
+
+    ReroutingStats:
+      type: object
+      properties:
+        total_reroute_decisions:     { type: integer }
+        total_zone_decisions:        { type: integer }
+        pct_zones_rerouted:          { type: number }
+        rerouting_contribution_pct:  { type: number }
+        description:                 { type: string }
+
+    EvalResults:
+      type: object
+      required: [improvement_pct, greedy, guided]
+      properties:
+        layout_id:        { type: string }
+        population:       { type: integer }
+        adherence:        { type: number }
+        n_runs:           { type: integer }
+        improvement_pct:  { type: number }
+        greedy:
+          $ref: "#/components/schemas/EvalSideResult"
+        guided:
+          $ref: "#/components/schemas/EvalSideResult"
+        rerouting:
+          $ref: "#/components/schemas/ReroutingStats"
+        congestion_time_series:
+          type: object
+          properties:
+            time_axis:
+              type: array
+              items: { type: number }
+            greedy_mean:
+              type: array
+              items: { type: number }
+            guided_mean:
+              type: array
+              items: { type: number }
+        wall_time_s: { type: number }

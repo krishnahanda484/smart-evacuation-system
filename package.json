@@ -1,0 +1,10 @@
+{
+  "name": "smart-evacuation-system",
+  "version": "1.0.0",
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

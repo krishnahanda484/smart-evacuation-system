@@ -1,0 +1,21 @@
+{
+  "run_id": "Unique identifier for this simulation run.",
+  "layout_id": "Floor plan used (sample_small / medium / large).",
+  "population_total": "Total occupants placed at the start.",
+  "adherence_rate": "Fraction of agents following guided exit recommendation.",
+  "step": "Discrete time-step index (integer).",
+  "timestamp_s": "Simulated elapsed time in seconds (step \u00d7 0.5).",
+  "region_id": "Spatial region index (8\u00d78-cell blocks).",
+  "center_row": "Row of the region centre cell.",
+  "center_col": "Column of the region centre cell.",
+  "local_population": "Number of agents currently in this region.",
+  "passable_cells": "Number of FREE/EXIT cells in this region (constant per layout).",
+  "local_density": "local_population / passable_cells \u2208 [0, MAX_DENSITY_RATIO].",
+  "nearest_exit_id": "Index of the nearest exit to this region's centre (BFS).",
+  "nearest_exit_dist": "BFS distance (cells) from region centre to nearest exit (finite only).",
+  "exit_flow_this_step": "Agents that exited via any exit during this step.",
+  "avg_walking_speed": "Mean speed (cells/step) of agents inside this region.",
+  "current_congestion": "Density-normalised congestion \u2208 [0, 1].",
+  "congestion_in_30s": "LABEL \u2014 current_congestion of this region 30 s later (60 steps).",
+  "evacuation_time_s": "LABEL \u2014 total simulated evacuation time for this run (s)."
+}
